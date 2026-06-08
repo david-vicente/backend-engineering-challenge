@@ -1,0 +1,17 @@
+[project]
+name = "unbabel_cli"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "David Vicente", email = "djmvicente@gmail.com" }
+]
+requires-python = ">=3.7"
+dependencies = []
+
+[project.scripts]
+unbabel_cli = "unbabel_cli:main"
+
+[build-system]
+requires = ["setuptools>=47.1"]
+build-backend = "setuptools.build_meta"
