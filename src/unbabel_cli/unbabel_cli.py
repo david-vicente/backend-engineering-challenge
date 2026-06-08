@@ -1,6 +1,32 @@
 import argparse
+import json
 from pathlib import Path
+from dataclasses import dataclass
+from datetime import datetime
 
+@dataclass
+class Event:
+    timestamp: datetime
+    duration: int
+
+
+def process_line(line):
+    ob = json.loads(line)
+    event = Event(
+        timestamp=datetime.fromisoformat(ob["timestamp"]),
+        duration=ob["duration"]
+    )
+    return event
+
+
+def process_file(input_path, output_path, window=10):
+    try:
+        with input_path.open("r", encoding="utf-8") as f:
+            for line in f:
+                event = process_line(line.rstrip())
+                print(event)
+    except Exception as e:
+        print(f"Error reading {input_path}: {e}")
 
 def parse_args():
     parser = argparse.ArgumentParser(
@@ -20,10 +46,11 @@ def parse_args():
     )
     return parser.parse_args()
 
-
 def main():
     args = parse_args()
-    print(args.input_file, args.window_size)
+    output_file = Path.cwd() / "averages.jsonl"
+
+    process_file(args.input_file, output_file, args.window_size)
 
 if __name__ == "__main__":
     main()
