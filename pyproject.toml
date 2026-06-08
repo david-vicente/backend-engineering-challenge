@@ -10,7 +10,7 @@ requires-python = ">=3.7"
 dependencies = []
 
 [project.scripts]
-unbabel_cli = "unbabel_cli:main"
+unbabel_cli = "unbabel_cli.unbabel_cli:main"
 
 [build-system]
 requires = ["setuptools>=47.1"]
