@@ -53,13 +53,21 @@ def add_event_to_stats(minute_stats, event):
 
 
 def process_line(line):
-    ob = json.loads(line)
-    event = Event(
-        timestamp=datetime.fromisoformat(ob["timestamp"]),
-        duration=ob["duration"],
-        event_name=ob["event_name"],
-    )
-    return event
+    try:
+        ob = json.loads(line)
+    except json.JSONDecodeError as e:
+        raise ValueError(f"Invalid JSON: {e}") from e
+
+    try:
+        return Event(
+            timestamp=datetime.fromisoformat(ob["timestamp"]),
+            duration=ob["duration"],
+            event_name=ob["event_name"],
+        )
+    except KeyError as e:
+        raise ValueError(f"Missing field: {e}") from e
+    except (ValueError, TypeError) as e:
+        raise ValueError(f"Invalid field value: {e}") from e
 
 
 def assign_event_to_minute(event):
@@ -97,6 +105,10 @@ def close_minute(
 
 
 def process_file(input_path, output_path, window_size=10):
+    if input_path.stat().st_size == 0:
+        print(f"Error reading {input_path}: file is empty")
+        return
+
     window_stats = WindowStats(buckets=deque())
     try:
         output_path.write_text("", encoding="utf-8")
@@ -113,6 +125,7 @@ def process_file(input_path, output_path, window_size=10):
                 break
 
             if first_event is None:
+                print(f"Error reading {input_path}: no translation_delivered events found")
                 return
 
             starting_output_minute = first_event.timestamp.replace(second=0, microsecond=0)
@@ -170,7 +183,6 @@ def process_file(input_path, output_path, window_size=10):
             )
             # force printing the window, with the last added bucket to the queue as if it just closed
             print_window_avg(window_stats, current_minute + timedelta(minutes=1), output_path)
-
     except Exception as e:
         print(f"Error reading {input_path}: {e}")
 
