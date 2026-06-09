@@ -12,6 +12,46 @@ class Event:
     event_name: str
 
 
+@dataclass
+class MinuteStats:
+    total: int  # sum of event durations in this minute
+    count: int  # number of events in this minute
+
+
+@dataclass
+class WindowStats:
+    buckets: deque
+    total: int = 0  # rolling sum of durations across buckets in the window
+    count: int = 0  # rolling number of events across buckets in the window
+
+    # Close minute and update sliding window statistics.
+    def append(self, bucket: MinuteStats, window: int):
+
+        self.buckets.append(bucket)
+        self.total += bucket.total
+        self.count += bucket.count
+
+        # remove old buckets
+        if len(self.buckets) > window:
+            removed = self.buckets.popleft()
+            self.total -= removed.total
+            self.count -= removed.count
+
+    def average(self):
+        return self.total / self.count if self.count else 0
+
+def event_stats(event):
+    return MinuteStats(
+        total=event.duration,
+        count=1,
+    )
+
+
+def add_event_to_stats(minute_stats, event):
+    minute_stats.total += event.duration
+    minute_stats.count += 1
+
+
 def process_line(line):
     ob = json.loads(line)
     event = Event(
@@ -29,35 +69,38 @@ def assign_event_to_minute(event):
     return floored
 
 
-def print_window_avg(queue, current_minute, output_path):
-    all_events = [e for bucket in queue for e in bucket]
-    avg_duration = (
-        sum(e.duration for e in all_events) / len(all_events) if all_events else 0
-    )
-    if isinstance(avg_duration, float) and avg_duration.is_integer():
-        avg_duration = int(avg_duration)
+def print_window_avg(window_stats, current_minute, output_path):
+    avg_duration = window_stats.average()
+
+    average_delivery_time = avg_duration
+    if (
+        isinstance(average_delivery_time, float)
+        and average_delivery_time.is_integer()
+    ):
+        average_delivery_time = int(average_delivery_time)
 
     output = {
         "date": current_minute.strftime("%Y-%m-%d %H:%M:%S"),
-        "average_delivery_time": avg_duration,
+        "average_delivery_time": average_delivery_time,
     }
     with output_path.open("a", encoding="utf-8") as f:
         f.write(json.dumps(output) + "\n")
 
 
 def close_minute(
-    queue, events_list, current_minute, window, starting_output_minute, output_path
+    window_stats, minute_stats, current_minute, window, starting_output_minute, output_path,
 ):
     if current_minute >= starting_output_minute:
-        print_window_avg(queue, current_minute, output_path)
-    queue.append(events_list)
-    if len(queue) > window:
-        queue.popleft()
+        print_window_avg(window_stats, current_minute, output_path)
+
+    window_stats.append(minute_stats, window)
 
 
-def process_file(input_path, output_path, window=10):
-    queue = deque()
+def process_file(input_path, output_path, window_size=10):
+    window_stats = WindowStats(buckets=deque())
     try:
+        output_path.write_text("", encoding="utf-8")
+
         with input_path.open("r", encoding="utf-8") as f:
 
             # Process the first delivered event to extract the starting minute.
@@ -73,8 +116,10 @@ def process_file(input_path, output_path, window=10):
                 return
 
             starting_output_minute = first_event.timestamp.replace(second=0, microsecond=0)
+
             current_minute = assign_event_to_minute(first_event)
-            events_list = [first_event]
+            current_minute_stats = event_stats(first_event)
+
 
             for line in f:
                 event = process_line(line.rstrip())
@@ -86,14 +131,14 @@ def process_file(input_path, output_path, window=10):
                 # if it doesn't, the minute bucket is complete so we can output its average and add it to the queue
                 # and start a new minute bucket
                 if event_minute == current_minute:
-                    events_list.append(event)
+                    add_event_to_stats(current_minute_stats, event)
                 else:
 
                     close_minute(
-                        queue,
-                        events_list,
+                        window_stats,
+                        current_minute_stats,
                         current_minute,
-                        window,
+                        window_size,
                         starting_output_minute,
                         output_path,
                     )
@@ -102,28 +147,30 @@ def process_file(input_path, output_path, window=10):
                     # Add empty minute buckets between the previous event minute and this event minute
                     while current_minute < event_minute:
                         close_minute(
-                            queue,
-                            [],
+                            window_stats,
+                            MinuteStats(total=0, count=0),
                             current_minute,
-                            window,
+                            window_size,
                             starting_output_minute,
                             output_path,
                         )
                         current_minute += timedelta(minutes=1)
 
-                    # Start a new minute bucket with the current event
-                    events_list = [event]
+                     # Start the new event's minute bucket.
+                    current_minute_stats = event_stats(event)
+
             # print the queue up to the second to last minute bucket and close the last bucket
             close_minute(
-                queue,
-                events_list,
+                window_stats,
+                current_minute_stats,
                 current_minute,
-                window,
+                window_size,
                 starting_output_minute,
                 output_path,
             )
             # force printing the window, with the last added bucket to the queue as if it just closed
-            print_window_avg(queue, current_minute + timedelta(minutes=1), output_path)
+            print_window_avg(window_stats, current_minute + timedelta(minutes=1), output_path)
+
     except Exception as e:
         print(f"Error reading {input_path}: {e}")
 
