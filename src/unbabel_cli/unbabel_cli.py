@@ -29,6 +29,16 @@ def print_queue(queue, current_minute, output_path):
     with output_path.open("a", encoding="utf-8") as f:
         print(queue, file=f)
 
+def close_minute(
+    queue, events_list, current_minute, window, starting_output_minute, output_path
+):
+    if current_minute >= starting_output_minute:
+        print_queue(queue, current_minute, output_path)
+    queue.append(events_list)
+    if len(queue) > window:
+        queue.popleft()
+
+
 
 def process_file(input_path, output_path, window=10):
     queue = deque()
@@ -52,34 +62,40 @@ def process_file(input_path, output_path, window=10):
                     events_list.append(event)
                 else:
 
-                    if current_minute >= starting_output_minute:
-                         print_queue(queue, current_minute, output_path)
-
-                    queue.append(events_list)
-
-                    if len(queue) > window:
-                        queue.popleft()
+                    close_minute(
+                        queue,
+                        events_list,
+                        current_minute,
+                        window,
+                        starting_output_minute,
+                        output_path,
+                    )
                     current_minute += timedelta(minutes=1)
 
                     # Add empty minute buckets between the previous event minute and this event minute
                     while current_minute < event_minute:
-                        if current_minute >= starting_output_minute:
-                             print_queue(queue, current_minute, output_path)
-                        queue.append([])
-                        if len(queue) > window:
-                            queue.popleft()
+                        close_minute(
+                            queue,
+                            [],
+                            current_minute,
+                            window,
+                            starting_output_minute,
+                            output_path,
+                        )
                         current_minute += timedelta(minutes=1)
 
                     # Start a new minute bucket with the current event
                     events_list = [event]
-            # print window before closing the final bucket
-            if current_minute >= starting_output_minute:
-                print_queue(queue, current_minute, output_path)
-            # add the last event bucket to the queue
-            queue.append(events_list)
-            if len(queue) > window:
-                queue.popleft()
-            # force printing the window, with the last added bucket to the queue
+            # print the queue up to the second to last minute bucket and close the last bucket
+            close_minute(
+                queue,
+                events_list,
+                current_minute,
+                window,
+                starting_output_minute,
+                output_path,
+            )
+            # force printing the window, with the last added bucket to the queue as if it just closed
             print_queue(queue, current_minute, output_path)
     except Exception as e:
         print(f"Error reading {input_path}: {e}")
