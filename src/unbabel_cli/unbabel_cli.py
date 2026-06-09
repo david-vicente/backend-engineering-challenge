@@ -96,7 +96,7 @@ def process_file(input_path, output_path, window=10):
                 output_path,
             )
             # force printing the window, with the last added bucket to the queue as if it just closed
-            print_queue(queue, current_minute, output_path)
+            print_queue(queue, current_minute + timedelta(minutes=1), output_path)
     except Exception as e:
         print(f"Error reading {input_path}: {e}")
 
