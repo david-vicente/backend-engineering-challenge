@@ -13,5 +13,5 @@ dependencies = []
 unbabel_cli = "unbabel_cli.unbabel_cli:main"
 
 [build-system]
-requires = ["setuptools>=47.1"]
+requires = ["setuptools >= 61.0.0, <= 68.0.0"]
 build-backend = "setuptools.build_meta"
