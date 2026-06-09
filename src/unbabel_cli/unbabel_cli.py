@@ -19,25 +19,38 @@ def process_line(line):
     )
     return event
 
+
 def assign_event_to_minute(event):
     floored = event.timestamp.replace(second=0, microsecond=0)
     if event.timestamp == floored:
         return floored - timedelta(minutes=1)
     return floored
 
-def print_queue(queue, current_minute, output_path):
+
+def print_window_avg(queue, current_minute, output_path):
+    all_events = [e for bucket in queue for e in bucket]
+    avg_duration = (
+        sum(e.duration for e in all_events) / len(all_events) if all_events else 0
+    )
+    if isinstance(avg_duration, float) and avg_duration.is_integer():
+        avg_duration = int(avg_duration)
+
+    output = {
+        "date": current_minute.strftime("%Y-%m-%d %H:%M:%S"),
+        "average_delivery_time": avg_duration,
+    }
     with output_path.open("a", encoding="utf-8") as f:
-        print(queue, file=f)
+        f.write(json.dumps(output) + "\n")
+
 
 def close_minute(
     queue, events_list, current_minute, window, starting_output_minute, output_path
 ):
     if current_minute >= starting_output_minute:
-        print_queue(queue, current_minute, output_path)
+        print_window_avg(queue, current_minute, output_path)
     queue.append(events_list)
     if len(queue) > window:
         queue.popleft()
-
 
 
 def process_file(input_path, output_path, window=10):
@@ -96,7 +109,7 @@ def process_file(input_path, output_path, window=10):
                 output_path,
             )
             # force printing the window, with the last added bucket to the queue as if it just closed
-            print_queue(queue, current_minute + timedelta(minutes=1), output_path)
+            print_window_avg(queue, current_minute + timedelta(minutes=1), output_path)
     except Exception as e:
         print(f"Error reading {input_path}: {e}")
 
