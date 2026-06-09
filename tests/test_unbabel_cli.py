@@ -25,6 +25,33 @@ class UnbabelCliTests(unittest.TestCase):
             ),
         )
 
+    def test_event_minute_assigns_event_to_floored_minute(self):
+
+        inside_minute_ev = unbabel_cli.Event(
+            timestamp=datetime(2018, 12, 26, 18, 11, 8, 509654),
+            duration=20,
+            event_name="translation_delivered",
+        )
+        self.assertEqual(
+            unbabel_cli.assign_event_to_minute(inside_minute_ev),
+            datetime(2018, 12, 26, 18, 11),
+        )
+
+    def test_event_minute_assigns_event_at_exact_minute_to_previous_minute(self):
+        exact_minute_ev = unbabel_cli.Event(
+            timestamp=datetime(2018, 12, 26, 18, 11),
+            duration=20,
+            event_name="translation_delivered",
+        )
+
+        self.assertEqual(
+            unbabel_cli.assign_event_to_minute(exact_minute_ev),
+            datetime(2018, 12, 26, 18, 10),
+        )
+
+
+
+
 
 if __name__ == "__main__":
     unittest.main()
