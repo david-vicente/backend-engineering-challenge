@@ -20,7 +20,8 @@ class UnbabelCliTests(unittest.TestCase):
             event,
             unbabel_cli.Event(
                 timestamp=datetime(2018, 12, 26, 18, 11, 8, 509654),
-                duration=20
+                duration=20,
+                event_name="translation_delivered",
             ),
         )
 

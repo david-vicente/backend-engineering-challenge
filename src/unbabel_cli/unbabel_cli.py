@@ -9,13 +9,15 @@ from collections import deque
 class Event:
     timestamp: datetime
     duration: int
+    event_name: str
 
 
 def process_line(line):
     ob = json.loads(line)
     event = Event(
         timestamp=datetime.fromisoformat(ob["timestamp"]),
-        duration=ob["duration"]
+        duration=ob["duration"],
+        event_name=ob["event_name"],
     )
     return event
 
@@ -58,8 +60,17 @@ def process_file(input_path, output_path, window=10):
     try:
         with input_path.open("r", encoding="utf-8") as f:
 
-            # process the first event to extract the starting minute.
-            first_event = process_line(next(f).rstrip())
+            # Process the first delivered event to extract the starting minute.
+            first_event = None
+            for line in f:
+                event = process_line(line.rstrip())
+                if event.event_name != "translation_delivered":
+                    continue
+                first_event = event
+                break
+
+            if first_event is None:
+                return
 
             starting_output_minute = first_event.timestamp.replace(second=0, microsecond=0)
             current_minute = assign_event_to_minute(first_event)
@@ -67,6 +78,9 @@ def process_file(input_path, output_path, window=10):
 
             for line in f:
                 event = process_line(line.rstrip())
+                if event.event_name != "translation_delivered":
+                    continue
+
                 event_minute = assign_event_to_minute(event)
                 # If the event shares the minute with the one before it, put it in the same bucket
                 # if it doesn't, the minute bucket is complete so we can output its average and add it to the queue
