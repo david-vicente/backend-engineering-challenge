@@ -190,7 +190,7 @@ def process_file(input_path, output_path, window_size=10):
 
 def parse_args():
     parser = argparse.ArgumentParser(
-        description="Compute the moving average of the translation delivery time for the last minutes."
+        description="Compute the moving average of the translation delivery time for the last minutes. By default outputs a file named 'averages.jsonl'"
     )
     parser.add_argument(
         "--input_file",
@@ -204,11 +204,26 @@ def parse_args():
         default=10,
         help="Number of previous minutes to consider for computing the moving average.",
     )
+
+    parser.add_argument(
+        "--output_file",
+        type=Path,
+        default=None,
+        help="Optional path to the output file",
+    )
+
     return parser.parse_args()
 
 def main():
     args = parse_args()
-    output_file = Path.cwd() / "averages.jsonl"
+
+    if args.output_file is not None:
+        output_file = args.output_file
+    else:
+        output_file = Path.cwd() / "averages.jsonl"
+        if output_file.exists():
+            random_suffix = datetime.now().strftime("%Y%m%d_%H%M%S")
+            output_file = Path.cwd() / f"averages_{random_suffix}.jsonl"
 
     process_file(args.input_file, output_file, args.window_size)
 
