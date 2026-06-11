@@ -34,6 +34,16 @@ source .venv/bin/activate
 unbabel_cli --input_file tests/data/test-input.jsonl --window_size 10
 ```
 
+## Run as a Standalone Script on Linux
+
+The CLI is a single Python file and has no runtime dependencies other than Python 3.7 or newer, so it can also be copied and run without installing the package:
+
+```sh
+cp src/unbabel_cli/unbabel_cli.py ./unbabel_cli
+chmod +x ./unbabel_cli
+./unbabel_cli --input_file tests/data/test-input.jsonl --window_size 10
+```
+
 ## Run Tests on Linux
 
 ```sh
