@@ -179,6 +179,28 @@ def process_file(input_path, output_path, window_size=10):
         print(f"Error reading {input_path}: {e}")
 
 
+def positive_int(value):
+    n = int(value)
+    if n <= 0:
+        raise argparse.ArgumentTypeError(f"window_size must be a positive integer, got {n}")
+    return n
+
+
+def existing_file(value):
+    path = Path(value)
+    if not path.exists():
+        raise argparse.ArgumentTypeError(f"file not found: {value}")
+    if not path.is_file():
+        raise argparse.ArgumentTypeError(f"not a file: {value}")
+    return path
+
+def is_a_file(value):
+    path = Path(value)
+    if path.exists() and not path.is_file():
+        raise argparse.ArgumentTypeError(f"not a file: {value}")
+
+    return path
+
 
 def parse_args():
     parser = argparse.ArgumentParser(
@@ -187,19 +209,19 @@ def parse_args():
     parser.add_argument(
         "--input_file",
         required=True,
-        type=Path,
+        type=existing_file,
         help="Path to the input file.",
     )
     parser.add_argument(
         "--window_size",
-        type=int,
+        type=positive_int,
         default=10,
-        help="Number of previous minutes to consider for computing the moving average.",
+        help="Number of previous minutes to consider for computing the moving average (must be positive).",
     )
 
     parser.add_argument(
         "--output_file",
-        type=Path,
+        type=is_a_file,
         default=None,
         help="Optional path to the output file",
     )
