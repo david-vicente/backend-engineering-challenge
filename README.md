@@ -10,6 +10,11 @@ unbabel_cli --input_file <events.jsonl> --window_size <minutes>
 
 By default, the app writes `averages.jsonl` in the current directory. Use `--output_file` to choose a different file.
 
+## Assumptions
+
+The app assumes that the input_file is ordered, i.e., events on a arbitrary line has higher timestamp than the one on the line before it.
+The app considers that events with a timestamp on exact minutes belong to the minute bucket before it. So for example an event with `"timestamp": "2018-12-26 18:11:00.000000"`, is placed in the bucket `"2018-12-26 18:10:00"`.
+
 ## Requirements
 
 The CLI has no runtime dependencies other than Python 3.7 or newer.
