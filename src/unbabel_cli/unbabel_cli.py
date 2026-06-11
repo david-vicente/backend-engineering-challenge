@@ -21,18 +21,19 @@ class MinuteStats:
 @dataclass
 class WindowStats:
     buckets: deque
+    window_size: int
     total: int = 0  # rolling sum of durations across buckets in the window
     count: int = 0  # rolling number of events across buckets in the window
 
     # Close minute and update sliding window statistics.
-    def append(self, bucket: MinuteStats, window: int):
+    def append(self, bucket: MinuteStats):
 
         self.buckets.append(bucket)
         self.total += bucket.total
         self.count += bucket.count
 
         # remove old buckets
-        if len(self.buckets) > window:
+        if len(self.buckets) > self.window_size:
             removed = self.buckets.popleft()
             self.total -= removed.total
             self.count -= removed.count
@@ -57,6 +58,8 @@ def process_line(line):
         ob = json.loads(line)
     except json.JSONDecodeError as e:
         raise ValueError(f"Invalid JSON: {e}") from e
+
+    # Maybe I should validate the full schema of the JSON here.
 
     try:
         return Event(
@@ -102,12 +105,12 @@ def print_window_avg(window_stats, current_minute, out_f):
 
 
 def close_minute(
-    window_stats, minute_stats, current_minute, window, starting_output_minute, out_f,
+    window_stats, minute_stats, current_minute, starting_output_minute, out_f,
 ):
     if current_minute >= starting_output_minute:
         print_window_avg(window_stats, current_minute, out_f)
 
-    window_stats.append(minute_stats, window)
+    window_stats.append(minute_stats)
 
 
 def process_file(input_path, output_path, window_size=10):
@@ -115,7 +118,7 @@ def process_file(input_path, output_path, window_size=10):
         print(f"Error reading {input_path}: file is empty")
         return
 
-    window_stats = WindowStats(buckets=deque())
+    window_stats = WindowStats(buckets=deque(), window_size=window_size)
     try:
         with input_path.open("r", encoding="utf-8") as f, output_path.open("w", encoding="utf-8") as out_f:
             events = iter_delivered_events(f)
@@ -142,7 +145,6 @@ def process_file(input_path, output_path, window_size=10):
                         window_stats,
                         current_minute_stats,
                         current_minute,
-                        window_size,
                         starting_output_minute,
                         out_f,
                     )
@@ -154,7 +156,6 @@ def process_file(input_path, output_path, window_size=10):
                             window_stats,
                             MinuteStats(total=0, count=0),
                             current_minute,
-                            window_size,
                             starting_output_minute,
                             out_f,
                         )
@@ -168,7 +169,6 @@ def process_file(input_path, output_path, window_size=10):
                 window_stats,
                 current_minute_stats,
                 current_minute,
-                window_size,
                 starting_output_minute,
                 out_f,
             )
