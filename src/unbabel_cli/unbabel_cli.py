@@ -69,6 +69,13 @@ def process_line(line):
     except (ValueError, TypeError) as e:
         raise ValueError(f"Invalid field value: {e}") from e
 
+# Yield translation_delivered events from an open file
+def iter_delivered_events(f):
+    for line in f:
+        event = process_line(line.rstrip())
+        if event.event_name == "translation_delivered":
+            yield event
+
 
 def assign_event_to_minute(event):
     floored = event.timestamp.replace(second=0, microsecond=0)
@@ -110,19 +117,10 @@ def process_file(input_path, output_path, window_size=10):
 
     window_stats = WindowStats(buckets=deque())
     try:
-
-
         with input_path.open("r", encoding="utf-8") as f, output_path.open("w", encoding="utf-8") as out_f:
+            events = iter_delivered_events(f)
 
-            # Process the first delivered event to extract the starting minute.
-            first_event = None
-            for line in f:
-                event = process_line(line.rstrip())
-                if event.event_name != "translation_delivered":
-                    continue
-                first_event = event
-                break
-
+            first_event = next(events, None)
             if first_event is None:
                 print(f"Error reading {input_path}: no translation_delivered events found")
                 return
@@ -132,12 +130,7 @@ def process_file(input_path, output_path, window_size=10):
             current_minute = assign_event_to_minute(first_event)
             current_minute_stats = event_stats(first_event)
 
-
-            for line in f:
-                event = process_line(line.rstrip())
-                if event.event_name != "translation_delivered":
-                    continue
-
+            for event in events:
                 event_minute = assign_event_to_minute(event)
                 # If the event shares the minute with the one before it, put it in the same bucket
                 # if it doesn't, the minute bucket is complete so we can output its average and add it to the queue
@@ -145,7 +138,6 @@ def process_file(input_path, output_path, window_size=10):
                 if event_minute == current_minute:
                     add_event_to_stats(current_minute_stats, event)
                 else:
-
                     close_minute(
                         window_stats,
                         current_minute_stats,
@@ -168,7 +160,7 @@ def process_file(input_path, output_path, window_size=10):
                         )
                         current_minute += timedelta(minutes=1)
 
-                     # Start the new event's minute bucket.
+                    # Start the new event's minute bucket.
                     current_minute_stats = event_stats(event)
 
             # print the queue up to the second to last minute bucket and close the last bucket
@@ -182,6 +174,7 @@ def process_file(input_path, output_path, window_size=10):
             )
             # force printing the window, with the last added bucket to the queue as if it just closed
             print_window_avg(window_stats, current_minute + timedelta(minutes=1), out_f)
+
     except Exception as e:
         print(f"Error reading {input_path}: {e}")
 
