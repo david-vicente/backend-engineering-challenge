@@ -77,7 +77,7 @@ def assign_event_to_minute(event):
     return floored
 
 
-def print_window_avg(window_stats, current_minute, output_path):
+def print_window_avg(window_stats, current_minute, out_f):
     avg_duration = window_stats.average()
 
     average_delivery_time = avg_duration
@@ -91,15 +91,14 @@ def print_window_avg(window_stats, current_minute, output_path):
         "date": current_minute.strftime("%Y-%m-%d %H:%M:%S"),
         "average_delivery_time": average_delivery_time,
     }
-    with output_path.open("a", encoding="utf-8") as f:
-        f.write(json.dumps(output) + "\n")
+    out_f.write(json.dumps(output) + "\n")
 
 
 def close_minute(
-    window_stats, minute_stats, current_minute, window, starting_output_minute, output_path,
+    window_stats, minute_stats, current_minute, window, starting_output_minute, out_f,
 ):
     if current_minute >= starting_output_minute:
-        print_window_avg(window_stats, current_minute, output_path)
+        print_window_avg(window_stats, current_minute, out_f)
 
     window_stats.append(minute_stats, window)
 
@@ -111,9 +110,9 @@ def process_file(input_path, output_path, window_size=10):
 
     window_stats = WindowStats(buckets=deque())
     try:
-        output_path.write_text("", encoding="utf-8")
 
-        with input_path.open("r", encoding="utf-8") as f:
+
+        with input_path.open("r", encoding="utf-8") as f, output_path.open("w", encoding="utf-8") as out_f:
 
             # Process the first delivered event to extract the starting minute.
             first_event = None
@@ -153,7 +152,7 @@ def process_file(input_path, output_path, window_size=10):
                         current_minute,
                         window_size,
                         starting_output_minute,
-                        output_path,
+                        out_f,
                     )
                     current_minute += timedelta(minutes=1)
 
@@ -165,7 +164,7 @@ def process_file(input_path, output_path, window_size=10):
                             current_minute,
                             window_size,
                             starting_output_minute,
-                            output_path,
+                            out_f,
                         )
                         current_minute += timedelta(minutes=1)
 
@@ -179,10 +178,10 @@ def process_file(input_path, output_path, window_size=10):
                 current_minute,
                 window_size,
                 starting_output_minute,
-                output_path,
+                out_f,
             )
             # force printing the window, with the last added bucket to the queue as if it just closed
-            print_window_avg(window_stats, current_minute + timedelta(minutes=1), output_path)
+            print_window_avg(window_stats, current_minute + timedelta(minutes=1), out_f)
     except Exception as e:
         print(f"Error reading {input_path}: {e}")
 
